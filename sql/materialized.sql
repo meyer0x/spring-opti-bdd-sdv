@@ -6,3 +6,6 @@ GROUP BY p.projet_id, p.name;
 
 -- Create an index on the materialized view for better performance
 CREATE INDEX idx_mv_project_task_count ON mv_project_task_count(projet_id);
+
+-- For refreshing the materialized view
+REFRESH MATERIALIZED VIEW mv_project_task_count;
