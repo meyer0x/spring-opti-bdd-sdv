@@ -6,10 +6,12 @@ import com.exo1.exo1.mapper.ProjetMapper;
 import com.exo1.exo1.repository.ProjetRepository;
 import com.exo1.exo1.repository.TaskRepository;
 import lombok.AllArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.webjars.NotFoundException;
-
-import java.util.List;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.CacheEvict;
 
 @Service
 @AllArgsConstructor
@@ -18,20 +20,26 @@ public class ProjetService {
     private ProjetMapper projetMapper;
     private TaskRepository taskRepository;
 
-    public List<ProjetDto> findAll() {
-        return projetMapper.toDtos(projetRepository.findAll());
-    }
-
+    @Cacheable("projets")
     public ProjetDto findById(long id) {
-        return projetMapper.toDto(projetRepository.findById(id).orElse(null));
+        return projetMapper.toDto(projetRepository.findByIdWithTasksAndUsers(id)
+                .orElseThrow(() -> new NotFoundException("Projet not found with id " + id)));
     }
 
+    @Cacheable("projets")
+    public Page<ProjetDto> findAll(Pageable pageable) {
+        return projetRepository.findAllWithTasksAndUsers(pageable)
+                .map(projetMapper::toDto);
+    }
+
+    @CacheEvict(value = "projets", allEntries = true)
     public ProjetDto save(ProjetDto projetDto) {
         Projet projet = projetMapper.toEntity(projetDto);
-        projet.getTasks().stream().forEach(t -> t.setProjet(projet));
+        projet.getTasks().forEach(t -> t.setProjet(projet));
         return projetMapper.toDto(projetRepository.save(projet));
     }
 
+    @CacheEvict(value = "projets", allEntries = true)
     public ProjetDto update(Long id, ProjetDto projetDto) {
         Projet existingProjet = projetRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("Projet not found with id " + id));
@@ -45,6 +53,7 @@ public class ProjetService {
         return projetMapper.toDto(projetRepository.save(projetUpdated));
     }
 
+    @CacheEvict(value = "projets", allEntries = true)
     public void delete(Long id) {
         projetRepository.deleteById(id);
     }
